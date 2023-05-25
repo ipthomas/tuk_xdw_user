@@ -42,13 +42,14 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 
 	if !initstate {
 		if err = tukdbint.NewDBEvent(&dbconn); err != nil {
+			log.Println(err.Error())
 			return queryResponse(http.StatusInternalServerError, err.Error(), tukcnst.TEXT_PLAIN)
 		}
 		initstate = true
 	}
 	switch req.HTTPMethod {
-
 	case http.MethodGet:
+		log.Println("Processing GET Request")
 		act := req.QueryStringParameters[tukcnst.ACT]
 		//var buf bytes.Buffer
 		var data = make(map[string]interface{})
@@ -65,18 +66,24 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 		data["Task"] = req.QueryStringParameters[tukcnst.TUK_EVENT_QUERY_PARAM_EXPRESSION]
 
 		if dataBytes, err = json.MarshalIndent(data, "", "  "); err != nil {
+			log.Println(err.Error())
 			return queryResponse(http.StatusInternalServerError, err.Error(), tukcnst.TEXT_PLAIN)
 		}
 		awsReq := tukhttp.AWS_APIRequest{}
+		log.Printf("Request Act = %s", act)
 		switch act {
 		case tukcnst.XDW_ADMIN_REGISTER_DEFINITION, tukcnst.XDW_ADMIN_Register_Template:
+			log.Println("Registering Workflow Definition")
 			awsReq = tukhttp.AWS_APIRequest{URL: os.Getenv(tukcnst.ENV_HTML_CREATOR_URL), Resource: "uploadfile", Body: dataBytes}
 		case "codemap":
+			log.Println("Returning Event Service Codemap")
 			return getCodemap(req.QueryStringParameters[tukcnst.TUK_EVENT_QUERY_PARAM_FORMAT])
 		default:
+			log.Println("Returning user spa HTML")
 			awsReq = tukhttp.AWS_APIRequest{URL: os.Getenv(tukcnst.ENV_HTML_CREATOR_URL), Resource: "spa", Body: dataBytes}
 		}
 		if err = tukhttp.NewRequest(&awsReq); err != nil {
+			log.Println(err.Error())
 			return queryResponse(http.StatusInternalServerError, err.Error(), tukcnst.TEXT_PLAIN)
 		}
 		return queryResponse(http.StatusOK, string(awsReq.Response), tukcnst.TEXT_HTML)
